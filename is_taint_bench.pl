@@ -5,7 +5,7 @@ use Benchmark qw(timethese cmpthese countit timestr);
 use Taint::Runtime qw($TAINT taint);
 $TAINT = 1;
 
-sub is1 { local $^W = 0; ! eval { eval("#".substr($_[0], 0, 0)); 1 } }
+sub is1 { return if ! defined $_[0]; ! eval { eval substr($_[0], 0, 0); 1 } }
 sub is2 { local $^W = 0; local $@; eval { kill 0 * $_[0] }; $@ =~ /^Insecure/ }
 sub is3 { local $^W = 0; ! eval { my $t = 0 * $_[0]; eval("1 + $t") } }
 
