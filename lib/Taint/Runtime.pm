@@ -232,7 +232,7 @@ structure and mark it as tainted.
 
 =back
 
-=AUTHOR
+=head1 AUTHOR
 
 Paul Seamons
 
