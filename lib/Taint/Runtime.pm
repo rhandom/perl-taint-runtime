@@ -2,11 +2,11 @@ package Taint::Runtime;
 
 =head1 NAME
 
-Taint - Runtime enable taint checking
+Taint::Runtime - Runtime enable taint checking
 
 =head1 CREDITS
 
-Inline C code was provided by "hv" on perlmonks.
+C code was provided by "hv" on perlmonks.
 http://perlmonks.org/?node_id=434086
 
 =cut
@@ -27,10 +27,12 @@ BEGIN {
                                is_tainted
                                taint
                                untaint
+                               taint_env
+                               taint_deeply
                                ) ],
                   );
   @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-  @EXPORT = qw();
+  @EXPORT = qw(taint_start taint_stop);
 
   $VERSION = '0.01';
   XSLoader::load('Taint::Runtime', $VERSION);
@@ -38,33 +40,15 @@ BEGIN {
 
 ###----------------------------------------------------------------###
 
-sub is_tainted { local $^W = 0; ! eval { eval(join "", '#', @_); 1 } }
-
-use vars qw($TAINTED);
-BEGIN {
-  $TAINTED = _tainted();
-  if (! is_tainted($TAINTED)) {
-    local $^W = 0;
-    $TAINTED = substr join("", @ARGV, $ENV{'PATH'}, $ENV{'SHELL'}, $ENV{'HTTP_USER_AGENT'}, $0), 0, 0;
-    if (! is_tainted($TAINTED) && open _RANDOM, "/dev/urandom") {
-      sysread(_RANDOM, my $chr, 1);
-      close _RANDOM;
-      $TAINTED = substr $chr, 0, 0;
-      $TAINTED = undef if ! is_tainted($TAINTED);
-    }
-  }
-}
-
-sub taint_start { _start_taint() }
+sub taint_start { _start_taint(); }
 
 sub taint_stop  { _stop_taint() }
 
-sub taint_enabled { is_tainted($TAINTED) }
+sub is_tainted { local $^W = 0; ! eval { eval(join "", '#', @_); 1 } }
 
-sub tainted {
-  die "Could not get tainted data - or taint mode not enabled" if ! defined $TAINTED;
-  return $TAINTED;
-}
+sub taint_enabled { is_tainted(_tainted()) }
+
+sub tainted { _tainted() }
 
 sub taint {
   my $str = shift;
@@ -83,6 +67,45 @@ sub untaint {
     $$ref = ($$ref =~ /(.*)/) ? $1 : do { require Carp; Carp::confess("Couldn't find data to untaint") };
   }
   return ref($str) ? 1 : $str;
+}
+
+###----------------------------------------------------------------###
+
+sub taint_env {
+  taint_deeply(\%ENV);
+}
+
+sub taint_deeply {
+  my ($ref, $seen) = @_;
+
+  return if ! defined $ref; # can undefined be tainted ?
+
+  if (! ref $ref) {
+    untaint \$_[0]; # better be modifyable
+    return;
+
+  } elsif (UNIVERSAL::isa($ref, 'SCALAR')) {
+    untaint $ref;
+    return;
+  }
+
+  ### avoid circular descent
+  $seen ||= {};
+  return if $seen->{$ref};
+  $seen->{$ref} = 1;
+
+  if (UNIVERSAL::isa($ref, 'ARRAY')) {
+    taint_deeply($_, $seen) foreach @$ref;
+
+  } elsif (UNIVERSAL::isa($ref, 'HASH')) {
+    while (my ($key, $val) = each %$ref) {
+      taint_deeply($key);
+      taint_deeply($val, $seen);
+      $ref->{$key} = $val;
+    }
+  } else {
+    # not really sure if or what to do for GLOBS or CODE refs
+  }
 }
 
 ###----------------------------------------------------------------###
@@ -118,7 +141,37 @@ __END__
 
 =head1 DESCRIPTION
 
-You probably shouldn't use this module.
+You probably shouldn't use this module.  The most common place to
+use this script would be in a CGI type environment where the server
+can be trusted.  This means that PERL5LIB and PERLLIB are known
+entities and the modules in them can be trusted.
+
+Generally tainting should be started before any processing of user
+data is done.  For example, taint_start should be called before
+CGI parameters are loaded or user files or filenames are read.
+
+In general - the more secure your script needs to be - the earlier
+on in your program that tainting should be enabled.  You probably really
+don't want to use this module in a setuid environment - in those cases
+-T on the commandline is the best policy.
+
+=head1 NON-EXPORTABLE XS FUNCTIONS
+
+=over 4
+
+=item _start_taint()
+
+Sets PL_tainting
+
+=item _stop_taint()
+
+Sets PL_tainting
+
+=item _tainted()
+
+Returns a zero length tainted string.
+
+=back
 
 =head1 FUNCTIONS
 
@@ -167,5 +220,20 @@ Returns a zero length tainted string.
 =item is_tainted
 
 Boolean - True if the passed value is tainted.
+
+=item taint_env
+
+Convenience function that taints the values of %ENV.
+
+=item taint_deeply
+
+Convenience function that attempts to deply recurse a
+structure and mark it as tainted.
+
+=back
+
+=AUTHOR
+
+Paul Seamons
 
 =cut
