@@ -6,7 +6,7 @@
 MODULE = Taint::Runtime		PACKAGE = Taint::Runtime
 
 int
-_start_taint()
+_taint_start()
   CODE:
     PL_tainting = 1;
     RETVAL = 1;
@@ -14,10 +14,17 @@ _start_taint()
     RETVAL
 
 int
-_stop_taint()
+_taint_stop()
   CODE:
     PL_tainting = 0;
     RETVAL = 1;
+  OUTPUT:
+    RETVAL
+
+int
+_taint_enabled()
+  CODE:
+    RETVAL = PL_tainting;
   OUTPUT:
     RETVAL
 
