@@ -12,26 +12,29 @@ http://perlmonks.org/?node_id=434086
 =cut
 
 use strict;
-use base qw(Exporter);
-use vars qw(%EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION);
+use Exporter;
+use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION);
+use XSLoader;
 
-%EXPORT_TAGS = (
-                'all' => [qw(
-                             taint_start
-                             taint_stop
-                             taint_enabled
-                             tainted
-                             is_tainted
-                             taint
-                             untaint
-                             ) ],
-                );
-@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-@EXPORT = qw();
-$VERSION = '0.01';
+BEGIN {
+  @ISA = qw(Exporter);
+  %EXPORT_TAGS = (
+                  'all' => [qw(
+                               taint_start
+                               taint_stop
+                               taint_enabled
+                               tainted
+                               is_tainted
+                               taint
+                               untaint
+                               ) ],
+                  );
+  @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+  @EXPORT = qw();
 
-require XSLoader;
-XSLoader::load('Taint::Runtime', $VERSION);
+  $VERSION = '0.01';
+  XSLoader::load('Taint::Runtime', $VERSION);
+}
 
 ###----------------------------------------------------------------###
 
@@ -41,6 +44,7 @@ use vars qw($TAINTED);
 BEGIN {
   $TAINTED = _tainted();
   if (! is_tainted($TAINTED)) {
+    local $^W = 0;
     $TAINTED = substr join("", @ARGV, $ENV{'PATH'}, $ENV{'SHELL'}, $ENV{'HTTP_USER_AGENT'}, $0), 0, 0;
     if (! is_tainted($TAINTED) && open _RANDOM, "/dev/urandom") {
       sysread(_RANDOM, my $chr, 1);
