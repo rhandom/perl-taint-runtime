@@ -1,8 +1,12 @@
 Changes
+lib/Taint/Runtime.pm
 Makefile.PL
 MANIFEST
+META.yml			Module meta-data (added by MakeMaker)
 ppport.h
 README
 Runtime.xs
+t/00_Base.t
+t/01_non_xs.t
+t/02_xs.t
 t/Taint-Runtime.t
-lib/Taint/Runtime.pm
