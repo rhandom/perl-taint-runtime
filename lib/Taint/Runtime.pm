@@ -1,85 +1,167 @@
 package Taint::Runtime;
 
+=head1 NAME
+
+Taint - Runtime enable taint checking
+
+=head1 CREDITS
+
+Inline C code was provided by "hv" on perlmonks.
+http://perlmonks.org/?node_id=434086
+
+=cut
+
 use strict;
-use warnings;
+use base qw(Exporter);
+use vars qw(%EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION);
 
-require Exporter;
-
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration	use Taint::Runtime ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	
-);
-
-our $VERSION = '0.01';
+%EXPORT_TAGS = (
+                'all' => [qw(
+                             taint_start
+                             taint_stop
+                             taint_enabled
+                             tainted
+                             is_tainted
+                             taint
+                             untaint
+                             ) ],
+                );
+@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+@EXPORT = qw();
+$VERSION = '0.01';
 
 require XSLoader;
 XSLoader::load('Taint::Runtime', $VERSION);
 
-# Preloaded methods go here.
+###----------------------------------------------------------------###
+
+sub is_tainted { local $^W = 0; ! eval { eval(join "", '#', @_); 1 } }
+
+use vars qw($TAINTED);
+BEGIN {
+  $TAINTED = _tainted();
+  if (! is_tainted($TAINTED)) {
+    $TAINTED = substr join("", @ARGV, $ENV{'PATH'}, $ENV{'SHELL'}, $ENV{'HTTP_USER_AGENT'}, $0), 0, 0;
+    if (! is_tainted($TAINTED) && open _RANDOM, "/dev/urandom") {
+      sysread(_RANDOM, my $chr, 1);
+      close _RANDOM;
+      $TAINTED = substr $chr, 0, 0;
+      $TAINTED = undef if ! is_tainted($TAINTED);
+    }
+  }
+}
+
+sub taint_start { _start_taint() }
+
+sub taint_stop  { _stop_taint() }
+
+sub taint_enabled { is_tainted($TAINTED) }
+
+sub tainted {
+  die "Could not get tainted data - or taint mode not enabled" if ! defined $TAINTED;
+  return $TAINTED;
+}
+
+sub taint {
+  my $str = shift;
+  my $ref = ref($str) ? $str : \$str;
+  $$ref = '' if ! defined $$ref;
+  $$ref .= tainted();
+  return ref($str) ? 1 : $str;
+}
+
+sub untaint {
+  my $str = shift;
+  my $ref = ref($str) ? $str : \$str;
+  if (! defined $$ref) {
+    $$ref = undef;
+  } else {
+    $$ref = ($$ref =~ /(.*)/) ? $1 : do { require Carp; Carp::confess("Couldn't find data to untaint") };
+  }
+  return ref($str) ? 1 : $str;
+}
+
+###----------------------------------------------------------------###
 
 1;
+
 __END__
-# Below is stub documentation for your module. You'd better edit it!
-
-=head1 NAME
-
-Taint::Runtime - Perl extension for blah blah blah
 
 =head1 SYNOPSIS
 
-  use Taint::Runtime;
-  blah blah blah
+  #!/usr/bin/perl -w
+
+  use strict;
+  use Taint::Runtime qw(taint_start is_tainted
+                        taint untaint
+                        taint_enabled);
+
+  ### other operations here
+
+  taint_start(); # taint should become active
+
+  print taint_enabled() ? "enabled\n" : "not enabled\n";
+
+  my $var = taint("some string");
+
+  print is_tainted($var) ? "tainted\n" : "not tainted\n";
+
+  $var = untaint($var);
+  # OR
+  untaint \$var;
+
+  print is_tainted($var) ? "tainted\n" : "not tainted\n";
 
 =head1 DESCRIPTION
 
-Stub documentation for Taint::Runtime, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+You probably shouldn't use this module.
 
-Blah blah blah.
+=head1 FUNCTIONS
 
-=head2 EXPORT
+=over 4
 
-None by default.
+=item taint_start
 
+Start taint mode.
 
+=item taint_stop
 
-=head1 SEE ALSO
+Stop taint mode.
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
+=item taint
 
-If you have a mailing list set up for your module, mention it here.
+Taints the passed in variable.  Only works on writeable scalar values.
+If a scalar ref is passed in - it is modified.  If a scalar is passed in
+(non ref) it is copied, modified and returned.  If a value was undefined,
+it becomes a zero length defined and tainted string.
 
-If you have a web site set up for your module, mention it here.
+  taint(\$var_to_be_tainted);
 
-=head1 AUTHOR
+  my $tainted_copy = taint($some_var);
 
-Paul Seamons, E<lt>pauls@localdomainE<gt>
+=item untaint
 
-=head1 COPYRIGHT AND LICENSE
+Untaints the passed in variable.  Only works on writeable scalar values.
+If a scalar ref is passed in - it is modified.  If a scalar is passed in
+(non ref) it is copied, modified and returned.  If a value was undefined
+it becomes an untainted undefined value.
 
-Copyright (C) 2005 by Paul Seamons
+  untaint(\$var_to_be_untainted);
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.5 or,
-at your option, any later version of Perl 5 you may have available.
+  my $untainted_copy = untaint($some_var);
 
+=back
+
+=item taint_enabled
+
+Boolean - Is taint on.
+
+=item tainted
+
+Returns a zero length tainted string.
+
+=item is_tainted
+
+Boolean - True if the passed value is tainted.
 
 =cut
