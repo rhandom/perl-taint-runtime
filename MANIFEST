@@ -6,6 +6,7 @@ META.yml			Module meta-data (added by MakeMaker)
 ppport.h
 README
 Runtime.xs
+is_taint_bench.pl
 t/00_Base.t
 t/01_non_xs.t
 t/02_xs.t
