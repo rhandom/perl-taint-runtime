@@ -81,11 +81,11 @@ sub taint_deeply {
   return if ! defined $ref; # can undefined be tainted ?
 
   if (! ref $ref) {
-    untaint \$_[0]; # better be modifyable
+    taint \$_[0]; # better be modifyable
     return;
 
   } elsif (UNIVERSAL::isa($ref, 'SCALAR')) {
-    untaint $ref;
+    taint $ref;
     return;
   }
 
