@@ -4,11 +4,6 @@ package Taint::Runtime;
 
 Taint::Runtime - Runtime enable taint checking
 
-=head1 CREDITS
-
-C code was provided by "hv" on perlmonks.
-http://perlmonks.org/?node_id=434086
-
 =cut
 
 use strict;
@@ -36,6 +31,9 @@ use XSLoader;
 
 $VERSION = '0.01';
 XSLoader::load('Taint::Runtime', $VERSION);
+
+###----------------------------------------------------------------###
+
 tie $TAINT, __PACKAGE__;
 
 sub TIESCALAR {
@@ -48,9 +46,23 @@ sub FETCH {
 
 sub STORE {
   my ($self, $val) = @_;
+  $val = 0 if ! $val || $val eq 'disable';
   $val ? _taint_start() : _taint_stop();
 }
 
+###----------------------------------------------------------------###
+
+sub import {
+  my $change;
+  for my $i (reverse 1 .. $#_) {
+    next if $_[$i] !~ /^(dis|en)able$/;
+    my $val = $1 eq 'dis' ? 0 : 1;
+    splice @_, $i, 0, ();
+    die 'Cannot both enable and disable $TAINT during import' if defined $change && $change != $val;
+    $TAINT = $val;
+  }
+  __PACKAGE__->export_to_level(1, @_);
+}
 
 ###----------------------------------------------------------------###
 
@@ -131,16 +143,44 @@ __END__
 
 =head1 SYNOPSIS
 
-  #!/usr/bin/perl -w
+  ### sample "enable" usage
 
+  #!/usr/bin/perl -w
+  use Taint::Runtime qw(enable taint_env);
+  taint_env();
+
+
+  ### sample $TAINT usage
+
+  #!/usr/bin/perl -w
+  use Taint::Runtime qw($TAINT taint_env);
+  $TAINT = 1;
+  taint_env();
+
+  # taint is now enabled
+
+  if (1) {
+    local $TAINT = 0;
+
+    # do something we trust
+  }
+
+  # back to an untrustwory area
+
+
+
+  ### sample functional usage
+
+  #!/usr/bin/perl -w
   use strict;
-  use Taint::Runtime qw(taint_start is_tainted
+  use Taint::Runtime qw(taint_start is_tainted taint_env
                         taint untaint
                         taint_enabled);
 
   ### other operations here
 
   taint_start(); # taint should become active
+  taint_env(); # %ENV was previously untainted
 
   print taint_enabled() ? "enabled\n" : "not enabled\n";
 
@@ -155,40 +195,74 @@ __END__
   print is_tainted($var) ? "tainted\n" : "not tainted\n";
 
 
-  use Taint::Runtime qw($TAINT);
-  $TAINT = 1;
-
-  # taint is now enabled
-
-  if (1) {
-    local $TAINT = 0;
-
-    # do something we trust
-  }
-
-  # back to an untrustwory area
-
 
 =head1 DESCRIPTION
 
-You probably shouldn't use this module.
+First - you probably shouldn't use this module to control taint.
+You should probably use the -T switch on the commandline instead.
+There are a somewhat limited number of legitimate use cases where
+you should use this module instead of the -T switch.  Unless you
+have a specific and good reason for not using the -T option, you
+should use the -T option.
 
-
-  The most common place to
-use this script would be in a CGI type environment where the server
-can be trusted.  This means that PERL5LIB and PERLLIB are known
-entities and the modules in them can be trusted.
-
-Generally tainting should be started before any processing of user
-data is done.  For example, taint_start should be called before
-CGI parameters are loaded or user files or filenames are read.
+Taint is a good thing.  However, few people (that I work with or talk
+to or discuss items with) use taint even though they should.  The goal of
+this module isn't to use taint less, but to actually encourage its use
+more.  This module aims to make using taint as painless as possible (This
+can be an argument against it - often implementation of security implies
+pain - so taking away pain might lessen security - sort of).
 
 In general - the more secure your script needs to be - the earlier
-on in your program that tainting should be enabled.  You probably really
-don't want to use this module in a setuid environment - in those cases
--T on the commandline is the best policy.
+on in your program that tainting should be enabled.  For most setuid scripts,
+you should enable taint by using the -T switch.  Without doing so you allow
+for a non-root user to override @INC which allows for them to put their
+own module in the place of trusted modules.  This is bad.  This is very bad.
+Use the -T switch.
+
+There are some common places where this module may be useful, and where
+most people don't use it.  One such place is in a web server.  The -T switch
+removes PERL5LIB and PERLLIB and '.' from @INC (or remove them before
+they can be added).  This makes sense under setuid.  The use of the -T switch
+in a CGI environment may cause a bit of a headache.  For new development,
+CGI scripts it may be possible to use the -T switch and for mod_perl environments
+there is the PerlTaint variable.  Both of these methods will enable taint
+and from that point on development should be done with taint.
+
+However, many (possibly most) perl web server implentations add their
+own paths to the PERL5LIB.  All CGI's and mod_perl scripts can then have access.
+Using the -T switch throws a wrench into the works as suddenly PERL5LIB
+disappears (mod_perl can easily have the extra directories added again
+using <perl>push @INC, '/our/lib/dir';</perl>).  The company I work for
+has 200 plus user visible scripts mixed with some mod_perl.  Currently
+none of the scripts use taint.  We would like for them all to, but it
+is not feasible to make the change all at once.  Taint::Runtime allows for moving legacy
+scripts over one at a time.
+
+Again, if you are using setuid - don't use this script.
+
+If you are not using setuid and have reasons not to use the -T and are
+using this module, make sure that taint is enabled before processing
+any user data.  Also remember that BECAUSE THE -T SWITCH WAS NOT USED
+%ENV IS INITIALLY NOT MARKED AS TAINTED.  Call taint_env() to mark
+it as tainted (especially important in CGI scripts which all read from
+$ENV{'QUERY_STRING'}).
+
+If you are not using the -T switch, you most likely should use the
+following at the very top of your script:
+
+  #!/usr/bin/perl -w
+
+  use strict;
+  use Taint::Runtime qw(enable taint_env);
+  taint_env();
+
+Though this module allows for you to turn taint off - you probably shouldn't.
+This module is more for you to turn taint on - and once it is on it probably
+ought to stay on.
 
 =head1 NON-EXPORTABLE XS FUNCTIONS
+
+The following very basic functions provide the base functionality.
 
 =over 4
 
@@ -210,11 +284,11 @@ Returns a zero length tainted string.
 
 =back
 
-=head1 $TAINT
+=head1 $TAINT VARIABLE
 
 The variable $TAINT is tied to the current state of taint.
-If $TAINT is set to 0 $TAINT is off.  When it is set to
-1 $TAINT is enabled.
+If $TAINT is set to 0 taint mode is off.  When it is set to
+1 taint mode is enabled.
 
   if (1) {
     local $TAINT = 1;
@@ -228,11 +302,17 @@ If $TAINT is set to 0 $TAINT is off.  When it is set to
 
 =item taint_start
 
-Start taint mode.
+Start taint mode.  $TAINT will equal 1.
 
 =item taint_stop
 
-Stop taint mode.
+Stop taint mode.  $TAINT will equal 0.
+
+=item taint_env
+
+Convenience function that taints the keys and values of %ENV.  If
+the -T switch was not used - you most likely should call
+this as soon as taint mode is enabled.
 
 =item taint
 
@@ -252,7 +332,15 @@ If a scalar ref is passed in - it is modified.  If a scalar is passed in
 (non ref) it is copied, modified and returned.  If a value was undefined
 it becomes an untainted undefined value.
 
-  untaint(\$var_to_be_untainted);
+Note:  Just because the variable is untainted, doesn't mean that it
+is safe.  You really should use CGI::Ex::Validate, or Data::FormValidator
+or any of the Untaint:: modules.  If you are doing your own validation, and
+once you have put the user data through very strict checks, then you
+can use untaint.
+
+  if ($var_to_be_untainted =~ /^[\w\.\-]{0,100}$/) {
+    untaint(\$var_to_be_untainted);
+  }
 
   my $untainted_copy = untaint($some_var);
 
@@ -268,16 +356,65 @@ Returns a zero length tainted string.
 
 Boolean - True if the passed value is tainted.
 
-=item taint_env
-
-Convenience function that taints the values of %ENV.
-
 =item taint_deeply
 
 Convenience function that attempts to deply recurse a
-structure and mark it as tainted.
+structure and mark it as tainted.  Takes a hashref, arrayref,
+scalar ref, or scalar and recursively untaints the structure.
 
 =back
+
+=head1 TURNING TAINT ON
+
+(Be sure to call taint_env() after turning taint on the first time)
+
+  #!/usr/bin/perl -T
+
+
+  use Taint::Runtime qw(enable);
+
+
+  use Taint::Runtime qw($TAINT);
+  $TAINT = 1;
+
+
+  use Taint::Runtime qw(taint_start);
+  taint_start;
+
+
+=head1 TURNING TAINT OFF
+
+  use Taint::Runtime qw(disable);
+
+
+  use Taint::Runtime qw($TAINT);
+  $TAINT = 0;
+
+
+  use Taint::Runtime qw(taint_stop);
+  taint_stop;
+
+
+=head1 CREDITS
+
+C code was provided by "hv" on perlmonks.  This module wouldn't
+really be possible without insight into the internals that "hv"
+provided.  His post with the code was shown in this node on
+perlmonks:
+
+  http://perlmonks.org/?node_id=434086
+
+The basic premise in that node was the following code:
+
+  use Inline C => 'void _start_taint() { PL_tainting = 1; }';
+  use Inline C => 'SV* _tainted() { PL_tainted = 1; return newSVpvn("", 0); }';
+
+In this module, these two lines have instead been turned into
+XS for runtime speed (and so you won't need Inline and Parse::RecDescent).
+
+Note: even though "hv" provided the base code example, that doesn't mean that he
+necessarily endorses the idea.  If there are disagreements, quirks, annoyances
+or any other negative side effects with this module - blame me - not "hv."
 
 =head1 AUTHOR
 
