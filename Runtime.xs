@@ -1,21 +1,25 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-
 #include "ppport.h"
-
 
 MODULE = Taint::Runtime		PACKAGE = Taint::Runtime
 
-void
+int
 _start_taint()
   CODE:
     PL_tainting = 1;
+    RETVAL = 1;
+  OUTPUT:
+    RETVAL
 
-void
+int
 _stop_taint()
   CODE:
     PL_tainting = 0;
+    RETVAL = 1;
+  OUTPUT:
+    RETVAL
 
 SV*
 _tainted()
