@@ -14,3 +14,15 @@ WriteMakefile(
 	# Un-comment this if you add C files to link with later:
     # OBJECT            => '$(O_FILES)', # link all the C files too
 );
+
+package MY;
+
+sub postamble {
+  return qq^
+    
+pm_to_blib: README
+
+README: \$(VERSION_FROM)
+	pod2text \$(VERSION_FROM) > README
+^;
+}
