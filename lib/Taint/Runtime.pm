@@ -52,12 +52,13 @@ sub STORE {
 
 ###----------------------------------------------------------------###
 
+### allow for special enable/disable keywords
 sub import {
   my $change;
   for my $i (reverse 1 .. $#_) {
     next if $_[$i] !~ /^(dis|en)able$/;
     my $val = $1 eq 'dis' ? 0 : 1;
-    splice @_, $i, 0, ();
+    splice @_, $i, 1, ();
     die 'Cannot both enable and disable $TAINT during import' if defined $change && $change != $val;
     $TAINT = $val;
   }
@@ -148,6 +149,7 @@ __END__
   #!/usr/bin/perl -w
   use Taint::Runtime qw(enable taint_env);
   taint_env();
+  # having the keyword enable in the import list starts taint
 
 
   ### sample $TAINT usage
@@ -296,9 +298,15 @@ If $TAINT is set to 0 taint mode is off.  When it is set to
     # taint is enabled
   }
 
-=head1 FUNCTIONS
+=head1 EXPORT FUNCTIONS
 
 =over 4
+
+=item enable/disable
+
+Not really functions.  If these keywords are in
+the import list, taint will be either enabled
+or disabled.
 
 =item taint_start
 
@@ -372,7 +380,7 @@ scalar ref, or scalar and recursively untaints the structure.
 
 
   use Taint::Runtime qw(enable);
-
+  # this does not create a function called enable - just starts taint
 
   use Taint::Runtime qw($TAINT);
   $TAINT = 1;
@@ -385,6 +393,7 @@ scalar ref, or scalar and recursively untaints the structure.
 =head1 TURNING TAINT OFF
 
   use Taint::Runtime qw(disable);
+  # this does not create a function called disable - just stops taint
 
 
   use Taint::Runtime qw($TAINT);
