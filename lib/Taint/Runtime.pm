@@ -207,8 +207,6 @@ it becomes an untainted undefined value.
 
   my $untainted_copy = untaint($some_var);
 
-=back
-
 =item taint_enabled
 
 Boolean - Is taint on.
@@ -234,6 +232,13 @@ structure and mark it as tainted.
 
 =head1 AUTHOR
 
-Paul Seamons
+Paul Seamons (2005)
+
+C stub functions by "hv" on perlmonks.org
+
+=head1 LICENSE
+
+This module may be used and distributed under the same
+terms as Perl itself.
 
 =cut
