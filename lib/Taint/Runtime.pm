@@ -29,7 +29,7 @@ use XSLoader;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = qw(taint_start taint_stop);
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 XSLoader::load('Taint::Runtime', $VERSION);
 
 ###----------------------------------------------------------------###
@@ -333,6 +333,9 @@ it becomes a zero length defined and tainted string.
 
   my $tainted_copy = taint($some_var);
 
+For a stronger taint, see the Taint module by Dan Sulgalski which is
+capable of tainting most types of data.
+
 =item untaint
 
 Untaints the passed in variable.  Only works on writeable scalar values.
@@ -369,6 +372,9 @@ Boolean - True if the passed value is tainted.
 Convenience function that attempts to deply recurse a
 structure and mark it as tainted.  Takes a hashref, arrayref,
 scalar ref, or scalar and recursively untaints the structure.
+
+For a stronger taint, see the Taint module by Dan Sulgalski which is
+capable of tainting most types of data.
 
 =back
 
