@@ -75,7 +75,7 @@ sub taint_enabled { _taint_enabled() }
 
 sub tainted { _tainted() }
 
-sub is_tainted { return if ! defined $_[0]; ! eval { eval substr($_[0], 0, 0); 1 } }
+sub is_tainted { return if ! defined $_[0]; ! eval { eval '#'.substr($_[0], 0, 0); 1 } }
 
 # slower on tainted and undef
 # modified version from standard lib/perl/5.8.5/tainted.pl
