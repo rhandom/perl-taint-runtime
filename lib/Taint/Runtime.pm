@@ -75,8 +75,11 @@ sub taint_enabled { _taint_enabled() }
 
 sub tainted { _tainted() }
 
-sub is_tainted { return if ! defined $_[0]; ! eval { eval substr($_[0], 0, 0); 1 } } # slower on untainted
-sub is_tainted2 { local $^W = 0; local $@; eval { kill 0 * $_[0] }; $@ =~ /^Insecure/ } # slower on tainted and undef
+sub is_tainted { return if ! defined $_[0]; ! eval { eval substr($_[0], 0, 0); 1 } }
+
+# slower on tainted and undef
+# modified version from standard lib/perl/5.8.5/tainted.pl
+sub is_tainted2 { local $^W = 0; local $@; eval { kill 0 * $_[0] }; $@ =~ /^Insecure/ }
 
 sub taint {
   my $str = shift;
