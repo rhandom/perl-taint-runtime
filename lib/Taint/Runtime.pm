@@ -13,42 +13,57 @@ http://perlmonks.org/?node_id=434086
 
 use strict;
 use Exporter;
-use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION);
+use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION $TAINT);
 use XSLoader;
 
-BEGIN {
-  @ISA = qw(Exporter);
-  %EXPORT_TAGS = (
-                  'all' => [qw(
-                               taint_start
-                               taint_stop
-                               taint_enabled
-                               tainted
-                               is_tainted
-                               taint
-                               untaint
-                               taint_env
-                               taint_deeply
-                               ) ],
-                  );
-  @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-  @EXPORT = qw(taint_start taint_stop);
+@ISA = qw(Exporter);
+%EXPORT_TAGS = (
+                'all' => [qw(
+                             taint_start
+                             taint_stop
+                             taint_enabled
+                             tainted
+                             is_tainted
+                             taint
+                             untaint
+                             taint_env
+                             taint_deeply
+                             $TAINT
+                             ) ],
+                );
+@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+@EXPORT = qw(taint_start taint_stop);
 
-  $VERSION = '0.01';
-  XSLoader::load('Taint::Runtime', $VERSION);
+$VERSION = '0.01';
+XSLoader::load('Taint::Runtime', $VERSION);
+tie $TAINT, __PACKAGE__;
+
+sub TIESCALAR {
+  return bless [], __PACKAGE__;
 }
+
+sub FETCH {
+  _taint_enabled() ? 1 : 0;
+}
+
+sub STORE {
+  my ($self, $val) = @_;
+  $val ? _taint_start() : _taint_stop();
+}
+
 
 ###----------------------------------------------------------------###
 
-sub taint_start { _start_taint(); }
+sub taint_start { _taint_start(); }
 
-sub taint_stop  { _stop_taint() }
+sub taint_stop  { _taint_stop() }
 
-sub is_tainted { local $^W = 0; ! eval { eval(join "", '#', @_); 1 } }
-
-sub taint_enabled { is_tainted(_tainted()) }
+sub taint_enabled { _taint_enabled() }
 
 sub tainted { _tainted() }
+
+sub is_tainted { return if ! defined $_[0]; ! eval { eval substr($_[0], 0, 0); 1 } } # slower on untainted
+sub is_tainted2 { local $^W = 0; local $@; eval { kill 0 * $_[0] }; $@ =~ /^Insecure/ } # slower on tainted and undef
 
 sub taint {
   my $str = shift;
@@ -139,9 +154,27 @@ __END__
 
   print is_tainted($var) ? "tainted\n" : "not tainted\n";
 
+
+  use Taint::Runtime qw($TAINT);
+  $TAINT = 1;
+
+  # taint is now enabled
+
+  if (1) {
+    local $TAINT = 0;
+
+    # do something we trust
+  }
+
+  # back to an untrustwory area
+
+
 =head1 DESCRIPTION
 
-You probably shouldn't use this module.  The most common place to
+You probably shouldn't use this module.
+
+
+  The most common place to
 use this script would be in a CGI type environment where the server
 can be trusted.  This means that PERL5LIB and PERLLIB are known
 entities and the modules in them can be trusted.
@@ -159,19 +192,35 @@ don't want to use this module in a setuid environment - in those cases
 
 =over 4
 
-=item _start_taint()
+=item _taint_start()
 
 Sets PL_tainting
 
-=item _stop_taint()
+=item _taint_stop()
 
 Sets PL_tainting
+
+=item _taint_enabled()
+
+View of PL_tainting
 
 =item _tainted()
 
 Returns a zero length tainted string.
 
 =back
+
+=head1 $TAINT
+
+The variable $TAINT is tied to the current state of taint.
+If $TAINT is set to 0 $TAINT is off.  When it is set to
+1 $TAINT is enabled.
+
+  if (1) {
+    local $TAINT = 1;
+
+    # taint is enabled
+  }
 
 =head1 FUNCTIONS
 
