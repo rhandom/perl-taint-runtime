@@ -29,7 +29,7 @@ use XSLoader;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = qw(taint_start taint_stop);
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 XSLoader::load('Taint::Runtime', $VERSION);
 
 ###----------------------------------------------------------------###
