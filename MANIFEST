@@ -3,6 +3,7 @@ is_taint_bench.pl
 lib/Taint/Runtime.pm
 Makefile.PL
 MANIFEST
+MANIFEST.SKIP
 META.yml			Module meta-data (added by MakeMaker)
 ppport.h
 README
