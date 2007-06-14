@@ -95,7 +95,7 @@ sub untaint {
   if (! defined $$ref) {
     $$ref = undef;
   } else {
-    $$ref = ($$ref =~ /(.*)/) ? $1 : do { require Carp; Carp::confess("Couldn't find data to untaint") };
+    $$ref = ($$ref =~ /(.*)/s) ? $1 : do { require Carp; Carp::confess("Couldn't find data to untaint") };
   }
   return ref($str) ? 1 : $str;
 }
@@ -433,6 +433,10 @@ XS for runtime speed (and so you won't need Inline and Parse::RecDescent).
 Note: even though "hv" provided the base code example, that doesn't mean that he
 necessarily endorses the idea.  If there are disagreements, quirks, annoyances
 or any other negative side effects with this module - blame me - not "hv."
+
+=head1 THANKS
+
+Thanks to Alexey A. Kiritchun for pointing out untaint failure on multiline strings.
 
 =head1 AUTHOR
 
